@@ -106,5 +106,104 @@ confusionMatrix(svm_test, reference = test_classification$Class)
 ##Homework
 
 1. Choose an appropriate machine learning dataset and use SVM with two different kernels. Campare the results. 
+##Setup
+```{r}
+library(tidyverse)
+library(mlbench)
+library(caret)
+library(pROC)
+data(PimaIndiansDiabetes)
+PimaIndiansDiabetes_num =PimaIndiansDiabetes
+
+
+train_size = floor(0.75 * nrow(PimaIndiansDiabetes_num))
+train_pos <- sample(seq_len(nrow(PimaIndiansDiabetes_num)), size = train_size)
+
+train_classification <- PimaIndiansDiabetes_num[train_pos, ]
+test_classification <- PimaIndiansDiabetes_num[-train_pos, ]
+
+```
+##SVM with a linear kernal
+```{r}
+set.seed(1112)
+control = trainControl(method = "repeatedcv", repeats = 5, classProbs = T, savePredictions = T)
+
+svm = train(diabetes~ pregnant + glucose + pressure + triceps + insulin + mass + pedigree + age, data = train_classification, method="svmLinear", tuneLength=10, trControl = control)
+
+svm
+
+```
+#ROC
+```{r}
+roc(predictor = as.ordered(svm$pred$pred), response = svm$pred$pred)$auc
+
+plot(x = roc(predictor = as.ordered(svm$pred$pred), response = svm$pred$obs)$specificities, y = roc(predictor = as.ordered(svm$pred$pred), response = svm$pred$obs)$sensitivities, col= "blue", xlim = c(1, 0), type ="l", ylab = "Sensitivity", xlab = "Specificity")
+
+```
+```{r}
+svm_test = predict(svm, newdata = test_classification)
+confusionMatrix(svm_test, reference = test_classification$diabetes)
+
+```
+##Svm with radial kernel
+```{r}
+set.seed(1112)
+control = trainControl(method = "repeatedcv", repeats = 5, classProbs = T, savePredictions = T)
+
+svm = train(diabetes~ pregnant + glucose + pressure + triceps + insulin + mass + pedigree + age, data = train_classification, method="svmRadial", tuneLength=10, trControl = control)
+
+svm
+
+```
+
+#ROC
+```{r}
+roc(predictor = as.ordered(svm$pred$pred), response = svm$pred$pred)$auc
+
+plot(x = roc(predictor = as.ordered(svm$pred$pred), response = svm$pred$obs)$specificities, y = roc(predictor = as.ordered(svm$pred$pred), response = svm$pred$obs)$sensitivities, col= "blue", xlim = c(1, 0), type ="l", ylab = "Sensitivity", xlab = "Specificity")
+
+```
+#Test set
+```{r}
+svm_test = predict(svm, newdata = test_classification)
+confusionMatrix(svm_test, reference = test_classification$diabetes)
+
+```
+
+The radial kernel appears to perform worse than the linear kernel, with lower accuracy, though its specificity is higher. 
 
 2. Attempt using SVM after using a previously covered feature selection method. Do the results improve? Explain. 
+```{r}
+#visualize correlation matrix
+library(corrplot)
+correlation_matrix = cor(PimaIndiansDiabetes_num[,1:9])
+corrplot(correlation_matrix, order = "hclust")
+PimaIndiansDiabetes_num =transform(PimaIndiansDiabetes, diabetes = as.numeric(diabetes))
+
+#apply correlation filter of 0.4
+highly_correlated <- colnames(PimaIndiansDiabetes_num)[findCorrelation(correlation_matrix, cutoff = .4, verbose = TRUE)]
+
+#which features are highly correlated and can be removed
+highly_correlated
+
+```
+
+```{r}
+set.seed(1112)
+control = trainControl(method = "repeatedcv", repeats = 5, classProbs = T, savePredictions = T)
+
+svm = train(diabetes~ pregnant  + pressure + insulin + mass + pedigree , data = train_classification, method="svmLinear", tuneLength=10, trControl = control)
+
+svm
+
+
+
+roc(predictor = as.ordered(svm$pred$pred), response = svm$pred$pred)$auc
+
+plot(x = roc(predictor = as.ordered(svm$pred$pred), response = svm$pred$obs)$specificities, y = roc(predictor = as.ordered(svm$pred$pred), response = svm$pred$obs)$sensitivities, col= "blue", xlim = c(1, 0), type ="l", ylab = "Sensitivity", xlab = "Specificity")
+
+svm_test = predict(svm, newdata = test_classification)
+confusionMatrix(svm_test, reference = test_classification$diabetes)
+
+```
+It appears that while the specificity goes up, the accuracy goes down along with the specificity. This could be because the threshold for feature selection was too low at only 0.4 cutoff.
